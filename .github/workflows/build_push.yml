@@ -170,8 +170,8 @@ jobs:
           cache-read-only: ${{ matrix.chunk.number > 1 }}
 
       - name: Prepare signing key
-         env:
-           KEYSTORE_ENC_PASS: ${{ secrets.KEYSTORE_ENC_PASS }}
+          env:
+            KEYSTORE_ENC_PASS: ${{ secrets.KEYSTORE_ENC_PASS }}
         run: |
           openssl enc -d -aes-256-cbc -pbkdf2 -in shiawase-extensions.keystore.enc -out signingkey.jks -pass env:KEYSTORE_ENC_PASS
 
