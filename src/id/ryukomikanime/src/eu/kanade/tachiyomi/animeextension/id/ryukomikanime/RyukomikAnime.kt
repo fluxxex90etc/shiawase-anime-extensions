@@ -212,8 +212,7 @@ abstract class RyukomikAnime :
         )
     }
 
-    private fun String.stringField(key: String): String? =
-        Regex("\"$key\":\"([^\"]*)\"").find(this)?.groupValues?.get(1)
+    private fun String.stringField(key: String): String? = Regex("\"$key\":\"([^\"]*)\"").find(this)?.groupValues?.get(1)
 
     private fun String.unescapeJson(): String = replace("\\n", "\n").replace("\\\"", "\"").replace("\\\\", "\\")
 
