@@ -33,8 +33,8 @@ REPO_ICON_DIR = REPO_DIR / "icon"
 REPO_APK_DIR.mkdir(parents=True, exist_ok=True)
 REPO_ICON_DIR.mkdir(parents=True, exist_ok=True)
 
-APK_BASE_URL = "https://cdn.jsdelivr.net/gh/yuzono/anime-repo@repo/apk"
-ICON_BASE_URL = "https://cdn.jsdelivr.net/gh/yuzono/anime-repo@repo/icon"
+APK_BASE_URL = "https://cdn.jsdelivr.net/gh/fluxxex90etc/shiawase-anime-repo@repo/apk"
+ICON_BASE_URL = "https://cdn.jsdelivr.net/gh/fluxxex90etc/shiawase-anime-repo@repo/icon"
 
 to_delete: list[str] = json.loads(sys.argv[1])
 # Every extension was rebuilt from scratch: the build output is the source of truth, so
@@ -128,11 +128,11 @@ for directory, keep in referenced.items():
             file.unlink()
 
 index = index_pb2.Index(
-    name="Yūzōnō",
-        badgeLabel="Yū",
-        signingKey="cbec121aa82ebb02aaa73806992e0368a97d47b5451ed6524816d03084c45905",
+    name="Shiawase",
+        badgeLabel="SHI",
+        signingKey="8733f135346a9fdf2ff9cb138d3d0a65e61f7a81a75a12206628711f84002be9",
         contact=index_pb2.Contact(
-            website="https://yuzono.github.io", discord="https://discord.gg/85MZhUX688"
+            website="https://github.com/fluxxex90etc/shiawase-anime-extensions",
     ),
     extensionList=index_pb2.ExtensionList(extensions=all_extensions),
 )
