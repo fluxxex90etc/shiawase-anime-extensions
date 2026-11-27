@@ -13,7 +13,6 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
 import keiyoushi.annotation.Source
 import keiyoushi.utils.ParsedAnimeHttpLegacySource
-import keiyoushi.utils.bodyString
 import keiyoushi.utils.getPreferencesLazy
 import keiyoushi.utils.parallelCatchingFlatMapBlocking
 import keiyoushi.utils.parallelMapNotNullBlocking
@@ -139,7 +138,7 @@ abstract class RyukomikAnime :
     // {"name":"360p - Mega","url":"https://link.desustream.com/?id=..."}
     // {"name":"720p vidhide","iframe":"https://odvidhide.com/embed/..."}.
     override fun videoListParse(response: Response): List<Video> {
-        val html = response.bodyString().replace("\\\"", "\"")
+        val html = response.body.string().replace("\\\"", "\"")
         val servers = SERVER_REGEX.findAll(html).map { match ->
             Triple(match.groupValues[1], match.groupValues[2], match.groupValues[3])
         }.toList()
@@ -176,7 +175,7 @@ abstract class RyukomikAnime :
     // (verified live); the JWPlayer sources:[{file:'...'}] form is kept as
     // a fallback from the OtakuDesu branch.
     private suspend fun getDesuStreamVideos(name: String, url: String): List<Video> {
-        val body = client.newCall(GET(url, headers)).awaitSuccess().bodyString()
+        val body = client.newCall(GET(url, headers)).awaitSuccess().body.string()
         val direct = SOURCE_TAG_REGEX.find(body)?.groupValues?.get(1)
             ?: JWPLAYER_REGEX.find(body)?.groupValues?.get(1)
             ?: return emptyList()
