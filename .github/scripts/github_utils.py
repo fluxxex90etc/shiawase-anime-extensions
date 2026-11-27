@@ -1,7 +1,7 @@
 import subprocess
 import time
 
-REPO_NAME = "yuzono/aniyomi-repo"
+REPO_NAME = "fluxxex90etc/shiawase-anime-repo"
 RETRY_ATTEMPTS = 4
 RETRY_BASE_DELAY = 60
 
