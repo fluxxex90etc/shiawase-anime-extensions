@@ -76,6 +76,8 @@ def resolve_multisrc_lib(libs: set[str]) -> set[str]:
     )
 
     multisrcs = set()
+    if not Path("lib-multisrc").is_dir():
+                return set()
 
     for multisrc in Path("lib-multisrc").iterdir():
         build_file = multisrc / "build.gradle.kts"
