@@ -36,9 +36,10 @@ import org.jsoup.nodes.Element
  *   "Fantasy / Historical", "China · 22 episode tersedia · Subtitle Indonesia",
  *   <h2> "Sinopsis" + synopsis paragraph, label/value pairs Negara / Tahun
  *   rilis / Format / Episode tersedia / Status tayang ("Sedang tayang").
- * - Episodes are <button>s ("Episode N", text "Episode N N"), NO href.
- *   Clicking only adds a hash (#episode_1); the player is an inline native
- *   <video> on the same detail page. Quality is 720p only, no server choice.
+ * - Episodes are <button data-episode="N">s (text is just the number,
+ *   "Episode N" lives in aria-label). Clicking only adds a hash
+ *   (#episode_1); the player is an inline native <video> on the same
+ *   detail page. Quality is 720p only, no server choice.
  * - Download links in the detail DOM: /api/v1/videos/<videoId>/download
  *   ?episode=<episodeId> (Ep1: 73805/73261 "720p 471 MB", Ep2: 73806/73262
  *   "720p 481 MB"; both ids increment by 1 per episode).
@@ -123,20 +124,21 @@ abstract class Dramaindo :
 
     // ============================== Episodes ==============================
     // Episode <button>s have no href, so the default selector-based episode
-    // parsing cannot work. Pair each button with the download <a> at the
-    // same DOM position (both lists are in episode order) and stash the
-    // video/episode ids in the episode URL's query — fragments are stripped
-    // by OkHttp, but query params survive to videoListParse.
+    // parsing cannot work. Buttons carry only the number as text ("1", "2",
+    // …) — the episode number lives in data-episode (aria-label "Episode N"
+    // agrees). Pair each button with the download <a> at the same DOM
+    // position (both lists are in episode order) and stash the video/episode
+    // ids in the episode URL's query — fragments are stripped by OkHttp,
+    // but query params survive to videoListParse.
     override fun episodeListParse(response: Response): List<SEpisode> {
         val document = response.useAsJsoup()
         val detailPath = response.request.url.encodedPath
-        val buttons = document.select("button")
-            .filter { EPISODE_BUTTON_REGEX.containsMatchIn(it.text()) }
+        val buttons = document.select("button[data-episode]")
         val links = document.select("a[href*=\"/download?episode=\"]")
         val count = minOf(buttons.size, links.size)
         return (0 until count).mapNotNull { i ->
-            val number = EPISODE_BUTTON_REGEX.find(buttons[i].text())
-                ?.groupValues?.get(1)?.toIntOrNull() ?: return@mapNotNull null
+            val number = buttons[i].attr("data-episode").toIntOrNull()
+                ?: return@mapNotNull null
             val ids = DOWNLOAD_HREF_REGEX.find(links[i].attr("href"))
                 ?: return@mapNotNull null
             val (videoId, episodeId) = ids.destructured
@@ -246,7 +248,6 @@ abstract class Dramaindo :
 
         private val TITLE_SUFFIX_REGEX = "^(.*?) \\(\\d{4}\\) Sub Indo$".toRegex()
         private val GENRE_REGEX = "[A-Za-z][A-Za-z ]+ / [A-Za-z][A-Za-z ]+".toRegex()
-        private val EPISODE_BUTTON_REGEX = "Episode\\s+(\\d+)".toRegex()
         private val DOWNLOAD_HREF_REGEX =
             "/api/v1/videos/(\\d+)/download\\?episode=(\\d+)".toRegex()
     }
