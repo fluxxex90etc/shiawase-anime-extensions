@@ -98,7 +98,7 @@ jobs:
         # If any changes caused by the merge commit, skip this step because versions should already pumped with that merge.
         # But that should be avoided because our own extensions may not be bumped.
       - name: Bump extensions that use a modified lib
-        if: steps.modified-libs.outputs.any_changed == 'true' && steps.set-env.outputs.SKIP_BUMP != 'true' && github.repository == 'yuzono/anime-extensions'
+        if: steps.modified-libs.outputs.any_changed == 'true' && steps.set-env.outputs.SKIP_BUMP != 'true' && github.repository == 'fluxxex90etc/shiawase-anime-extensions'
         env:
           COMMIT_MESSAGE: ${{ steps.set-env.outputs.LATEST_COMMIT_MESSAGE }}
         run: |
@@ -170,9 +170,10 @@ jobs:
           cache-read-only: ${{ matrix.chunk.number > 1 }}
 
       - name: Prepare signing key
+         env:
+           KEYSTORE_ENC_PASS: ${{ secrets.KEYSTORE_ENC_PASS }}
         run: |
-          echo ${{ secrets.SIGNING_KEY }} | base64 -d > signingkey.jks
-          chmod 600 signingkey.jks
+          openssl enc -d -aes-256-cbc -pbkdf2 -in shiawase-extensions.keystore.enc -out signingkey.jks -pass env:KEYSTORE_ENC_PASS
 
       - name: Build extensions (${{ matrix.chunk.number }})
         env:
@@ -191,7 +192,7 @@ jobs:
 
       - name: Upload APKs (${{ matrix.chunk.number }})
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: github.repository == 'yuzono/anime-extensions'
+        if: github.repository == 'fluxxex90etc/shiawase-anime-extensions'
         with:
           name: "individual-apks-${{ matrix.chunk.number }}"
           path: |
@@ -209,7 +210,7 @@ jobs:
       !cancelled()
       && needs.prepare.result == 'success'
       && (needs.build.result == 'success' || needs.build.result == 'skipped')
-      && github.repository == 'yuzono/anime-extensions'
+      && github.repository == 'fluxxex90etc/shiawase-anime-extensions'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -218,7 +219,7 @@ jobs:
         background: true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: yuzono/aniyomi-repo
+          repository: fluxxex90etc/shiawase-anime-repo
           token: ${{ secrets.BOT_PAT }}
           ref: repo
           path: repo
