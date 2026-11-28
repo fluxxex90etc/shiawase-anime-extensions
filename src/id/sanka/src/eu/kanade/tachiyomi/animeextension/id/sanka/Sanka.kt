@@ -53,6 +53,15 @@ import java.util.Locale
  * - GET /anime/home → data.ongoing.animeList[15] +
  *   data.completed.animeList[10] (completed items carry score).
  *
+ * v14.3 (2026-11-28): VidHide playback fix — the odvidhide.com player
+ * setup hides inside a Dean Edwards packed eval, which the
+ * VidHideExtractor lib never unpacks, so vidhide extraction returned
+ * empty. getVidHideVideos now unpacks the eval itself (radix 36,
+ * ~600 words, verified on the 720p + 360p embeds) and reads the
+ * hls2/hls3/hls4 links out of the unpacked `var links={...}` object.
+ * The unpacked .m3u8 URLs 403 from a datacenter IP — on-device test
+ * on Floppa's phone is still the proof that they play.
+ *
  * UNVERIFIED — first on-device test / CI build must confirm or correct:
  * 1. PAGE PARAM: /anime/ongoing-anime is assumed to paginate with
  *    ?page=N (the saved page-2 file proves pagination exists, not the
@@ -281,12 +290,129 @@ abstract class Sanka :
     private suspend fun resolveEmbed(name: String, url: String): List<Video> = when {
         "desustream.com/dstream" in url || "desustream.net/dstream" in url ->
             getDesuStreamVideos(name, url)
-        "vidhide" in url -> vidHideExtractor.videosFromUrl(url)
+        "vidhide" in url -> getVidHideVideos(name, url)
         url.endsWith(".mp4") || url.endsWith(".m3u8") ->
             listOf(Video(videoUrl = url, videoTitle = name, headers = headers))
         // Anything else (filedon/mega/odcdn embed pages, download gates)
         // is an HTML page, not a playable stream — never list it as one.
         else -> emptyList()
+    }
+
+    // VidHide (odvidhide.com) hides its player setup inside a Dean
+    // Edwards packed eval — the VidHideExtractor lib never unpacks eval,
+    // so its raw `file:"..."` search finds nothing and it returns
+    // empty. Unpack the eval ourselves and read the stream links out
+    // of the unpacked `var links={hls2,hls3,hls4}` object (verified
+    // live 2026-11-28 on the 720p and 360p embeds of Tokyo Revengers
+    // S4 E9: radix 36, ~600 words; the unpacked setup is
+    // jwplayer("vplayer").setup({sources:[{file:links.hls4||
+    // links.hls3||links.hls2,type:"hls"}]}).
+    // The unpacked .m3u8 URLs 403 from a datacenter IP (VM) — they
+    // should still play on the phone (residential IP).
+    private suspend fun getVidHideVideos(name: String, url: String): List<Video> {
+        // Try the extractor first (it handles unpacked pages), then
+        // fall back to unpacking the packed eval ourselves.
+        val extracted = runCatching { vidHideExtractor.videosFromUrl(url) }.getOrNull().orEmpty()
+        if (extracted.isNotEmpty()) return extracted
+        val html = runCatching {
+            client.newCall(GET(url, headers)).awaitSuccess().use { it.body.string() }
+        }.getOrNull() ?: return emptyList()
+        val unpacked = unpackPackedEval(html) ?: return emptyList()
+        return vidHideLinksToVideos(name, url, unpacked)
+    }
+
+    // Unpacks one Dean Edwards packed eval:
+    // eval(function(p,a,c,k,e,d){...}('PAYLOAD',RADIX,COUNT,'W1|W2|...'.split('|'),0,{}))
+    // Returns the unpacked source, or null when there is no packed eval.
+    private fun unpackPackedEval(html: String): String? {
+        val start = html.indexOf("eval(function(p,a,c,k,e,d)")
+        if (start < 0) return null
+        val argsStart = html.indexOf("}('", start)
+        if (argsStart < 0) return null
+        var pos = argsStart + 3 // at the opening quote of the payload
+        val (payload, afterPayload) = readJsString(html, pos) ?: return null
+        pos = afterPayload
+        if (pos >= html.length || html[pos] != ',') return null
+        pos++
+        val radixEnd = html.indexOf(',', pos)
+        if (radixEnd < 0) return null
+        val radix = html.substring(pos, radixEnd).trim().toIntOrNull() ?: return null
+        if (radix < 2 || radix > 62) return null
+        pos = radixEnd + 1
+        val countEnd = html.indexOf(',', pos)
+        if (countEnd < 0) return null
+        val count = html.substring(pos, countEnd).trim().toIntOrNull() ?: return null
+        pos = countEnd + 1
+        val (wordsStr, _) = readJsString(html, pos) ?: return null
+        val words = wordsStr.split('|')
+        // The packer substitutes from the last word down (while(c--)).
+        var unpacked = payload
+        for (c in count - 1 downTo 0) {
+            val word = words.getOrNull(c).orEmpty()
+            if (word.isEmpty()) continue
+            val token = c.toBaseString(radix)
+            unpacked = Regex("\\b$token\\b").replace(unpacked) { word }
+        }
+        return unpacked
+    }
+
+    // Reads one single-quoted JS string literal starting at pos (which
+    // must be the opening quote); backslash escapes are resolved to
+    // the escaped character. Returns the value and the position just
+    // past the closing quote, or null when the string is unterminated.
+    private fun readJsString(s: String, pos: Int): Pair<String, Int>? {
+        if (pos >= s.length || s[pos] != '\'') return null
+        val out = StringBuilder()
+        var i = pos + 1
+        while (i < s.length) {
+            val ch = s[i]
+            if (ch == '\\' && i + 1 < s.length) {
+                out.append(s[i + 1])
+                i += 2
+                continue
+            }
+            if (ch == '\'') return out.toString() to (i + 1)
+            out.append(ch)
+            i++
+        }
+        return null
+    }
+
+    // Int.toString(radix) only supports 2..36; the packer can use up
+    // to 62 (digits 0-9a-zA-Z).
+    private fun Int.toBaseString(radix: Int): String {
+        if (radix <= 36) return toString(radix)
+        val digits = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        var n = this
+        if (n == 0) return "0"
+        val out = StringBuilder()
+        while (n > 0) {
+            out.append(digits[n % radix])
+            n /= radix
+        }
+        return out.reverse().toString()
+    }
+
+    // Reads the stream links out of the unpacked player setup. The
+    // links object does not always carry all three keys (the 360p
+    // sample has only hls2+hls3) — missing keys are skipped. Order:
+    // the direct .m3u8 CDN link first, then the origin .m3u8, then
+    // the .txt playlist (ExoPlayer is least likely to play that one).
+    private fun vidHideLinksToVideos(name: String, embedUrl: String, unpacked: String): List<Video> {
+        val linksBlock = LINKS_OBJECT_REGEX.find(unpacked)?.groupValues?.get(1) ?: return emptyList()
+        val entries = LINK_ENTRY_REGEX.findAll(linksBlock)
+            .associate { it.groupValues[1] to it.groupValues[2] }
+        val base = runCatching { embedUrl.toHttpUrl() }.getOrNull() ?: return emptyList()
+        val orderedKeys = listOf("hls2", "hls4", "hls3")
+        val urls = orderedKeys.mapNotNull { key ->
+            entries[key]?.takeIf { it.isNotBlank() }?.let { raw ->
+                base.resolve(raw)?.toString()
+            }
+        }
+        return urls.mapIndexed { index, videoUrl ->
+            val title = if (index == 0) "$name - VidHide" else "$name - VidHide (cadangan $index)"
+            Video(videoUrl = videoUrl, videoTitle = title, headers = headers)
+        }
     }
 
     // DesuStream pages serve a plain <video><source src="..."> (verified
@@ -343,6 +469,8 @@ abstract class Sanka :
 
         private val SOURCE_TAG_REGEX = "<source[^>]+src=\"([^\"]+)\"".toRegex()
         private val JWPLAYER_REGEX = "sources:\\[\\{file:'([^']+)'".toRegex()
+        private val LINKS_OBJECT_REGEX = "links\\s*=\\s*\\{([^}]*)\\}".toRegex()
+        private val LINK_ENTRY_REGEX = "\"(hls\\d)\"\\s*:\\s*\"([^\"]+)\"".toRegex()
 
         private val EPISODE_DATE_PATTERNS = arrayOf("d MMMM,yyyy", "d MMM,yyyy")
 
