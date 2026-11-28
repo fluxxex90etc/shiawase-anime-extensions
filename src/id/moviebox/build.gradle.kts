@@ -1,3 +1,5 @@
+import io.github.keiyoushi.gradle.api.ContentWarning
+
 plugins {
     alias(kei.plugins.extension)
 }
@@ -5,6 +7,7 @@ plugins {
 yuzono {
     name = "MovieBox"
     versionCode = 1
+    contentWarning = ContentWarning.MIXED
     libVersion = "14"
 
     source {
