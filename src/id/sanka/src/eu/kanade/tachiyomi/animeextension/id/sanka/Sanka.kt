@@ -187,17 +187,19 @@ abstract class Sanka :
     override fun latestUpdatesNextPageSelector() = throw UnsupportedOperationException()
 
     // ============================== Popular ===============================
-    // No "most popular" list in the API; the home endpoint's completed
-    // titles carry scores, so the highest-scored ones are the proxy.
-    // Single page.
+    // No "most popular" list in the API; the home endpoint's ongoing
+    // (15) + completed (10) titles are shown together, completed first
+    // by score. Single page.
     override fun popularAnimeRequest(page: Int): Request = GET("$baseUrl/anime/home")
 
     override fun popularAnimeParse(response: Response): AnimesPage {
-        val completed = json.decodeFromString<HomeResponse>(response.body.string())
-            .data?.completed?.animeList.orEmpty()
-        val anime = completed
-            .filter { it.animeId.isNotBlank() }
+        val home = json.decodeFromString<HomeResponse>(response.body.string()).data
+        val ongoing = home?.ongoing?.animeList.orEmpty()
+        val completed = home?.completed?.animeList.orEmpty()
             .sortedByDescending { it.score.toDoubleOrNull() ?: 0.0 }
+        val anime = (ongoing + completed)
+            .filter { it.animeId.isNotBlank() }
+            .distinctBy { it.animeId }
             .map { it.toSAnime() }
         return AnimesPage(anime, false)
     }
@@ -280,8 +282,10 @@ abstract class Sanka :
         "desustream.com/dstream" in url || "desustream.net/dstream" in url ->
             getDesuStreamVideos(name, url)
         "vidhide" in url -> vidHideExtractor.videosFromUrl(url)
-        url.endsWith(".mp4") || url.endsWith(".m3u8") || "embed" in url ->
+        url.endsWith(".mp4") || url.endsWith(".m3u8") ->
             listOf(Video(videoUrl = url, videoTitle = name, headers = headers))
+        // Anything else (filedon/mega/odcdn embed pages, download gates)
+        // is an HTML page, not a playable stream — never list it as one.
         else -> emptyList()
     }
 
@@ -344,7 +348,7 @@ abstract class Sanka :
 
         private const val PREF_QUALITY_KEY = "preferred_quality"
         private const val PREF_QUALITY_TITLE = "Preferred quality"
-        private const val PREF_QUALITY_DEFAULT = "1080p"
+        private const val PREF_QUALITY_DEFAULT = "720p"
         private val PREF_QUALITY_ENTRIES = arrayOf("1080p", "720p", "480p", "360p")
     }
 }
