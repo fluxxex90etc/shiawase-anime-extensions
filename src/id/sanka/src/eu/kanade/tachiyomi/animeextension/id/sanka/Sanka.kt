@@ -275,15 +275,14 @@ abstract class Sanka :
         return resolveEmbed("$quality $name", embedUrl)
     }
 
-    private suspend fun resolveEmbed(name: String, url: String): List<Video> =
-        when {
-            "desustream.com/dstream" in url || "desustream.net/dstream" in url ->
-                getDesuStreamVideos(name, url)
-            "vidhide" in url -> vidHideExtractor.videosFromUrl(url)
-            url.endsWith(".mp4") || url.endsWith(".m3u8") || "embed" in url ->
-                listOf(Video(videoUrl = url, videoTitle = name, headers = headers))
-            else -> emptyList()
-        }
+    private suspend fun resolveEmbed(name: String, url: String): List<Video> = when {
+        "desustream.com/dstream" in url || "desustream.net/dstream" in url ->
+            getDesuStreamVideos(name, url)
+        "vidhide" in url -> vidHideExtractor.videosFromUrl(url)
+        url.endsWith(".mp4") || url.endsWith(".m3u8") || "embed" in url ->
+            listOf(Video(videoUrl = url, videoTitle = name, headers = headers))
+        else -> emptyList()
+    }
 
     // DesuStream pages serve a plain <video><source src="..."> (verified
     // live in the Ryukomik extension); the JWPlayer sources:[{file:'...'}]
