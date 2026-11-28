@@ -244,7 +244,7 @@ abstract class MovieBox :
     // =============================== Search ===============================
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
         if (query.isBlank()) return latestUpdatesRequest(page)
-        val typeState = filters.filterIsInstance<AnimeFilter.Select<String>>()
+        val typeState = filters.filterIsInstance<TypeSelect>()
             .firstOrNull()?.state ?: 0
         val body = buildJsonObject {
             put("keyword", query.trim())
@@ -445,8 +445,12 @@ abstract class MovieBox :
     override fun videoFromElement(element: Element) = throw UnsupportedOperationException()
 
     // ============================== Filters ===============================
+    // AnimeFilter.Select is abstract — it must be subclassed, one class
+    // per filter, so the app can tell the filters apart.
+    private class TypeSelect : AnimeFilter.Select<String>("Tipe", arrayOf("Semua", "Film", "Series"))
+
     override fun getFilterList(): AnimeFilterList = AnimeFilterList(
-        AnimeFilter.Select("Tipe", arrayOf("Semua", "Film", "Series")),
+        TypeSelect(),
         AnimeFilter.Header("Tipe hanya berlaku untuk pencarian"),
     )
 
