@@ -119,8 +119,7 @@ abstract class Sanka :
     }
 
     // JSON source: the document-based details parse is unused.
-    override fun animeDetailsParse(document: Document): SAnime =
-        throw UnsupportedOperationException()
+    override fun animeDetailsParse(document: Document): SAnime = throw UnsupportedOperationException()
 
     private fun parseStatus(statusString: String?): Int {
         val s = statusString?.lowercase() ?: return SAnime.UNKNOWN
@@ -170,8 +169,7 @@ abstract class Sanka :
     // =============================== Latest ===============================
     // /anime/ongoing-anime: 25 titles per page, pagination object with
     // hasNextPage (verified for pages 1 and 2).
-    override fun latestUpdatesRequest(page: Int): Request =
-        GET("$baseUrl/anime/ongoing-anime?page=$page")
+    override fun latestUpdatesRequest(page: Int): Request = GET("$baseUrl/anime/ongoing-anime?page=$page")
 
     override fun latestUpdatesParse(response: Response): AnimesPage {
         val body = json.decodeFromString<OngoingResponse>(response.body.string())
@@ -277,8 +275,8 @@ abstract class Sanka :
         return resolveEmbed("$quality $name", embedUrl)
     }
 
-    private suspend fun resolveEmbed(name: String, url: String): List<Video> {
-        return when {
+    private suspend fun resolveEmbed(name: String, url: String): List<Video> =
+        when {
             "desustream.com/dstream" in url || "desustream.net/dstream" in url ->
                 getDesuStreamVideos(name, url)
             "vidhide" in url -> vidHideExtractor.videosFromUrl(url)
@@ -286,7 +284,6 @@ abstract class Sanka :
                 listOf(Video(videoUrl = url, videoTitle = name, headers = headers))
             else -> emptyList()
         }
-    }
 
     // DesuStream pages serve a plain <video><source src="..."> (verified
     // live in the Ryukomik extension); the JWPlayer sources:[{file:'...'}]
