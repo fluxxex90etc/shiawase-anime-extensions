@@ -105,6 +105,7 @@ abstract class MovieBox :
 
     // Search JWT (the `token` cookie from GET /home), cached in memory.
     @Volatile private var cachedJwt: String? = null
+
     @Volatile private var jwtFetchedAt: Long = 0L
 
     // ============================== Headers ===============================
@@ -146,13 +147,11 @@ abstract class MovieBox :
         return cachedJwt
     }
 
-    private fun postJson(url: String, body: String, headers: Headers): Request {
-        return Request.Builder()
-            .url(url)
-            .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
-            .headers(headers)
-            .build()
-    }
+    private fun postJson(url: String, body: String, headers: Headers): Request = Request.Builder()
+        .url(url)
+        .post(body.toRequestBody("application/json; charset=utf-8".toMediaType()))
+        .headers(headers)
+        .build()
 
     // ============================== Popular ===============================
     // Popular and Latest each merge the film list (channelId 1) and the
@@ -334,8 +333,7 @@ abstract class MovieBox :
 
     override fun animeDetailsParse(document: Document): SAnime = throw UnsupportedOperationException()
 
-    private fun slugFromUrl(url: String): String =
-        url.substringAfter("/moviedetail/").substringBefore("?").substringBefore("/")
+    private fun slugFromUrl(url: String): String = url.substringAfter("/moviedetail/").substringBefore("?").substringBefore("/")
 
     // ============================== Episodes ==============================
     override fun episodeListRequest(anime: SAnime): Request {
