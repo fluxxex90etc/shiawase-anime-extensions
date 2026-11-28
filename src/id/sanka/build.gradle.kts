@@ -6,7 +6,7 @@ plugins {
 
 yuzono {
     name = "Sanka"
-    versionCode = 2
+    versionCode = 3
     contentWarning = ContentWarning.MIXED
     libVersion = "14"
 
