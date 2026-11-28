@@ -174,7 +174,12 @@ abstract class NontonAnimeID :
         val href = element.attr("href").ifBlank { return null }
         val path = href.replace(Regex("^https?://[^/]+"), "")
             .takeIf { it.startsWith("/anime/") } ?: return null
-        val title = element.selectFirst("img[alt]")?.attr("alt")?.trim()
+        // The card's first <img> is a banner with an EMPTY alt — the
+        // title lives on the cover img's alt. Take the first non-blank
+        // alt (an empty alt is not null, so a plain ?: never fires).
+        val title = element.select("img[alt]")
+            .map { it.attr("alt").trim() }
+            .firstOrNull { it.isNotBlank() }
             ?: path.substringAfterLast("/").replace('-', ' ').trim()
         if (title.isBlank()) return null
         return SAnime.create().apply {
