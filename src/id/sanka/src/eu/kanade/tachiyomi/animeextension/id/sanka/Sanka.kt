@@ -18,6 +18,7 @@ import keiyoushi.utils.ParsedAnimeHttpLegacySource
 import keiyoushi.utils.getPreferencesLazy
 import keiyoushi.utils.parallelCatchingFlatMapBlocking
 import keiyoushi.utils.parallelMapNotNullBlocking
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
@@ -262,7 +263,7 @@ abstract class Sanka :
         // server entry resolved to a playable video.
         val fallback = episode.defaultStreamingUrl.trim()
         if (fallback.isBlank()) return emptyList()
-        return runCatching { resolveEmbed("Default", fallback) }.getOrNull().orEmpty()
+        return runCatching { runBlocking { resolveEmbed("Default", fallback) } }.getOrNull().orEmpty()
     }
 
     private suspend fun getVideosFromServer(server: Triple<String, String, String>): List<Video> {
