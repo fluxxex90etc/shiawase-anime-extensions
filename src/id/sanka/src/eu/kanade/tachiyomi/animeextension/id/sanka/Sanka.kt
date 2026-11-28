@@ -61,6 +61,11 @@ import java.util.Locale
  * hls2/hls3/hls4 links out of the unpacked `var links={...}` object.
  * The unpacked .m3u8 URLs 403 from a datacenter IP — on-device test
  * on Floppa's phone is still the proof that they play.
+ * v14.4 (2026-11-28): v14.3 listed the VidHide videos but they
+ * would not play on Floppa's phone. Two changes: the link order now
+ * follows the player's own fallback chain (hls4 first, .txt last),
+ * and every VidHide video carries the embed page as Referer — the
+ * CDN refuses the playlist without it.
  *
  * UNVERIFIED — first on-device test / CI build must confirm or correct:
  * 1. PAGE PARAM: /anime/ongoing-anime is assumed to paginate with
@@ -395,15 +400,18 @@ abstract class Sanka :
 
     // Reads the stream links out of the unpacked player setup. The
     // links object does not always carry all three keys (the 360p
-    // sample has only hls2+hls3) — missing keys are skipped. Order:
-    // the direct .m3u8 CDN link first, then the origin .m3u8, then
-    // the .txt playlist (ExoPlayer is least likely to play that one).
+    // sample has only hls2+hls3) — missing keys are skipped. Order
+    // follows the player's own fallback chain (hls4 first), except
+    // the .txt playlist goes last — ExoPlayer is least likely to
+    // play that one. Every video carries the embed page as Referer:
+    // the CDN refuses the playlist without it.
     private fun vidHideLinksToVideos(name: String, embedUrl: String, unpacked: String): List<Video> {
         val linksBlock = LINKS_OBJECT_REGEX.find(unpacked)?.groupValues?.get(1) ?: return emptyList()
         val entries = LINK_ENTRY_REGEX.findAll(linksBlock)
             .associate { it.groupValues[1] to it.groupValues[2] }
         val base = runCatching { embedUrl.toHttpUrl() }.getOrNull() ?: return emptyList()
-        val orderedKeys = listOf("hls2", "hls4", "hls3")
+        val orderedKeys = listOf("hls4", "hls2", "hls3")
+        val videoHeaders = headers.newBuilder().add("Referer", embedUrl).build()
         val urls = orderedKeys.mapNotNull { key ->
             entries[key]?.takeIf { it.isNotBlank() }?.let { raw ->
                 base.resolve(raw)?.toString()
@@ -411,7 +419,7 @@ abstract class Sanka :
         }
         return urls.mapIndexed { index, videoUrl ->
             val title = if (index == 0) "$name - VidHide" else "$name - VidHide (cadangan $index)"
-            Video(videoUrl = videoUrl, videoTitle = title, headers = headers)
+            Video(videoUrl = videoUrl, videoTitle = title, headers = videoHeaders)
         }
     }
 
